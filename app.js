@@ -45,4 +45,22 @@ app.use(function(err, req, res, next) {
   res.render('error');
 });
 
+// Run the scripts when npm start
+const createTestCafe = require('testcafe');
+let testcafe         = null;
+createTestCafe('localhost', 1337, 1338)
+    .then(tc => {
+        testcafe     = tc;
+        const runner = testcafe.createRunner();
+
+        return runner
+            .src([__dirname + '/testScripts/test1.js'])
+            .browsers(['chrome'])
+            .run();
+    })
+    .then(failedCount => {
+        console.log('Tests failed: ' + failedCount);
+        testcafe.close();
+    });
+
 module.exports = app;
