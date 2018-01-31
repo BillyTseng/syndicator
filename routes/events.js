@@ -30,4 +30,28 @@ router.get('/', function(req, res, next) {
   });
 });
 
+router.post('/create', function(req, res, next) {
+  var startDate = new Date(req.body.startDate);
+  var endDate = new Date(req.body.endDate);
+  var currentTime = Date.now();
+
+  var newRecord = new Event({
+    name:   req.body.eventName,
+    description:  req.body.description,
+    startDate:   startDate,
+    endDate:     endDate,
+    price:       req.body.price,
+    submitTime: currentTime,
+    posted:     false
+  });
+
+  newRecord.save( function(err, user) {
+      if (err) {
+        res.status(400).json( {success: false, message: "Bad Request" } );
+      } else {
+        res.status(201).json( {success: true, message: "success" } );
+      }
+  });
+});
+
 module.exports = router;
