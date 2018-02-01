@@ -45,22 +45,76 @@ app.use(function(err, req, res, next) {
   res.render('error');
 });
 
-// Run the scripts when npm start
+var Event = require(__dirname + "/models/event");
 const createTestCafe = require('testcafe');
-let testcafe         = null;
-createTestCafe('localhost', 1337, 1338)
-    .then(tc => {
-        testcafe     = tc;
-        const runner = testcafe.createRunner();
+var fs = require('fs');
+//const timeoutScheduled = Date.now();
+setInterval(cronJobs, 1000 * 60 * 60);
 
-        return runner
-            .src([__dirname + '/testScripts/test1.js'])
-            .browsers(['chrome'])
-            .run();
-    })
-    .then(failedCount => {
-        console.log('Tests failed: ' + failedCount);
-        testcafe.close();
-    });
+function cronJobs( )
+{
+  const delay = Date.now() - timeoutScheduled;
+  //console.log(`${delay}ms have passed since I was scheduled`);
+  Event.findOne({posted: false}, function(err, doc) {
+    if (doc === null) {
+      //console.log("no data");
+    } else {
+      // Produce the scripts.
+      produceScriptEventbrite(doc.name, doc.startDate, doc.endDate);
+      // Run the scripts.
+      runScripts();
+
+      // Set the flag of posted to true in database.
+      console.log(doc.name + ', ' + doc.description);
+      doc.posted = true;
+      Event.findByIdAndUpdate(doc._id, doc, function(err, doc) {
+          if (err) {
+            console.log("err:" + err);
+          } else if (doc) {
+            console.log("success: posted=" + doc.posted);
+          } else {
+            console.log("other");
+          }
+      });
+    }
+  });
+}
+
+function produceScriptEventbrite(name, startDate, endDate) {
+  var account = "yourEmail";
+  var password = "yourPassword";
+  var newstartDate = (startDate.getMonth() + 1) + '/' + startDate.getDate() + '/' + startDate.getFullYear();
+  var newendDate = (endDate.getMonth() + 1) + '/' + endDate.getDate() + '/' + endDate.getFullYear();
+  var data = "";
+  data += "import { Selector } from 'testcafe'; fixture `Getting Started`.page `https://www.eventbrite.com/create`;";
+  data += 'test("Eventbrite", async t => {const startDate = Selector(".hasDatepicker").nth(0);' +
+      'const endDate = Selector(".hasDatepicker").nth(1);' +
+      'await t.typeText("#signin-email", "' + account + '")' +
+      '.click("button[type=submit]").typeText("#password", "' + password + '")' +
+      '.click("button[type=submit]").typeText("#id_group-details-name", "' + name + '")' +
+      '.typeText(startDate, "' + newstartDate + '", { replace: true }).typeText(endDate, "' + newendDate + '", { replace: true })' +
+      '.click("#create-ticket-free-button").typeText("#id_group-tickets-0-ticket_type", "' + name + '")' +
+      '.typeText("#id_group-tickets-0-quantity_total", "100").click("#make-event-live-button-almost-done")' +
+      '.expect(Selector("#publish-success").innerText).contains("Congratulations");});'
+  fs.writeFileSync(__dirname + '/testScripts/eventbrite.js', data);
+}
+
+function runScripts() {
+  let testcafe         = null;
+  createTestCafe('localhost', 1337, 1338)
+      .then(tc => {
+          testcafe     = tc;
+          const runner = testcafe.createRunner();
+
+          return runner
+              .src([__dirname + '/testScripts/eventbrite.js'])
+              .browsers(['chrome'])
+              .run();
+      })
+      .then(failedCount => {
+          console.log('Tests failed: ' + failedCount);
+          testcafe.close();
+      });
+}
 
 module.exports = app;
